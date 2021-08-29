@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -28,17 +26,44 @@ enum class PluginEntry(
     val pluginId: String,
     @StringRes val nameId: Int,
     val packageName: String,
-    val downloadSource: DownloadSource = DownloadSource(),
-    val downloadLink: String = "https://sagernet.org/download/"
+    val downloadSource: DownloadSource = DownloadSource()
 ) {
-    TrojanGo("trojan-go", R.string.action_trojan_go, "io.nekohasekai.sagernet.plugin.trojan_go"),
-    NaiveProxy("naive", R.string.action_naive, "io.nekohasekai.sagernet.plugin.naive"),
-    PingTunnel("pingtunnel", R.string.action_ping_tunnel, "io.nekohasekai.sagernet.plugin.pingtunnel"),
-    RelayBaton("relaybaton", R.string.action_relay_baton, "io.nekohasekai.sagernet.plugin.relaybaton"),
-    Brook("brook", R.string.action_brook, "io.nekohasekai.sagernet.plugin.brook");
+    // sagernet plugins
+    TrojanGo("trojan-go-plugin", R.string.action_trojan_go, "io.nekohasekai.sagernet.plugin.trojan_go"),
+    NaiveProxy("naive-plugin", R.string.action_naive, "io.nekohasekai.sagernet.plugin.naive"),
+    PingTunnel("pingtunnel-plugin", R.string.action_ping_tunnel, "io.nekohasekai.sagernet.plugin.pingtunnel"),
+    RelayBaton("relaybaton-plugin", R.string.action_relay_baton, "io.nekohasekai.sagernet.plugin.relaybaton"),
+    Brook("brook-plugin", R.string.action_brook, "io.nekohasekai.sagernet.plugin.brook"),
+    Hysteria("hysteria-plugin", R.string.action_hysteria, "io.nekohasekai.sagernet.plugin.hysteria", DownloadSource(fdroid = false)),
+
+    // shadowsocks plugins
+
+    ObfsLocal("shadowsocks-obfs-local", R.string.shadowsocks_plugin_simple_obfs, "com.github.shadowsocks.plugin.obfs_local", DownloadSource(
+        fdroid = false,
+        downloadLink = "https://github.com/shadowsocks/simple-obfs-android/releases"
+    )),
+
+    V2RayPlugin("shadowsocks-v2ray-plugin", R.string.shadowsocks_plugin_v2ray, "com.github.shadowsocks.plugin.v2ray", DownloadSource(
+        downloadLink = "https://github.com/shadowsocks/v2ray-plugin-android/releases"
+    ));
 
     data class DownloadSource(
-        val playStore: Boolean = false, val fdroid: Boolean = false, val link: Boolean = false
+        val playStore: Boolean = true,
+        val fdroid: Boolean = true,
+        val downloadLink: String = "https://sagernet.org/download/"
     )
+
+    companion object {
+
+        fun find(name: String): PluginEntry? {
+            for (pluginEntry in enumValues<PluginEntry>()) {
+                if (name == pluginEntry.pluginId) {
+                    return pluginEntry
+                }
+            }
+            return null
+        }
+
+    }
 
 }

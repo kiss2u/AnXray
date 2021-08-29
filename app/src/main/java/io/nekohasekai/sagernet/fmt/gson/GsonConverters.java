@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -23,6 +21,7 @@ package io.nekohasekai.sagernet.fmt.gson;
 
 import androidx.room.TypeConverter;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -34,6 +33,9 @@ public class GsonConverters {
 
     @TypeConverter
     public static String toJson(Object value) {
+        if (value instanceof Collection) {
+            if (((Collection<?>) value).isEmpty()) return "";
+        }
         return GsonsKt.getGson().toJson(value);
     }
 

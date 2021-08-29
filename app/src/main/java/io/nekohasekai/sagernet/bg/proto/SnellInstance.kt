@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -22,28 +20,24 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import io.nekohasekai.sagernet.bg.AbstractInstance
+import io.nekohasekai.sagernet.bg.ClashBasedInstance
 import io.nekohasekai.sagernet.fmt.snell.SnellBean
-import kotlinx.coroutines.CoroutineScope
-import libcore.SnellInstance
+import libcore.Libcore
 
-class SnellInstance(val server: SnellBean, val port: Int) : AbstractInstance {
+class SnellInstance(val server: SnellBean, val port: Int) : ClashBasedInstance() {
 
-    lateinit var point: SnellInstance
+    override fun createInstance() {
 
-    override fun launch() {
-        point = SnellInstance(
-            port.toLong(),
+        instance = Libcore.newSnellInstance(
+            port,
             server.finalAddress,
-            server.finalPort.toLong(),
+            server.finalPort,
             server.psk,
             server.obfsMode,
             server.obfsHost,
-            server.version.toLong()
+            server.version
         )
-        point.start()
+
     }
 
-    override fun destroy(scope: CoroutineScope) {
-        if (::point.isInitialized) point.close()
-    }
 }

@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -27,12 +25,11 @@ import cn.hutool.json.JSONArray
 import cn.hutool.json.JSONObject
 import com.google.gson.JsonSyntaxException
 import io.nekohasekai.sagernet.IPv6Mode
-import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.VpnMode
+import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.bg.ForegroundDetectorService
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.V2rayBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.brook.BrookBean
@@ -48,7 +45,10 @@ import io.nekohasekai.sagernet.fmt.v2ray.V2RayConfig
 import io.nekohasekai.sagernet.fmt.v2ray.V2RayConfig.*
 import io.nekohasekai.sagernet.fmt.v2ray.VLESSBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
-import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.ktx.USE_STATS_SERVICE
+import io.nekohasekai.sagernet.ktx.isIpAddress
+import io.nekohasekai.sagernet.ktx.isRunning
+import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.utils.PackageCache
 
 const val TAG_SOCKS = "socks"
@@ -79,13 +79,14 @@ class V2rayBuildResult(
     var bypassTag: String,
     var enableApi: Boolean,
     var observatoryTags: Set<String>,
-    var uidMap: Map<Int, Int>
+    val dumpUid: Boolean,
+    val alerts: List<Pair<Int, String>>,
 ) {
     data class IndexEntity(var isBalancer: Boolean, var chain: LinkedHashMap<Int, ProxyEntity>)
 }
 
 fun buildV2RayConfig(
-    proxy: ProxyEntity, forTest: Boolean = false, testPort: Int = 0
+    proxy: ProxyEntity, forTest: Boolean = false
 ): V2rayBuildResult {
 
     val outboundTags = ArrayList<String>()
@@ -114,6 +115,7 @@ fun buildV2RayConfig(
             } else {
                 SagerDatabase.proxyDao.getByGroup(bean.groupId)
             }
+
             val beansMap = beans.associateBy { it.id }
             val beanList = ArrayList<ProxyEntity>()
             for (proxyId in beansMap.keys) {
@@ -140,7 +142,8 @@ fun buildV2RayConfig(
         })) to it.resolveChain()
     }
 
-    val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
+    val allowAccess = DataStore.allowAccess
+    val bind = if (!forTest && allowAccess) "0.0.0.0" else LOCALHOST
 
     val remoteDns = DataStore.remoteDns.split("\n")
     val directDNS = DataStore.directDns.split("\n")
@@ -149,61 +152,13 @@ fun buildV2RayConfig(
     val trafficSniffing = DataStore.trafficSniffing
     val indexMap = ArrayList<IndexEntity>()
     var requireWs = false
-    val requireHttp = forTest || Build.VERSION.SDK_INT <= Build.VERSION_CODES.M || DataStore.requireHttp
+    val requireHttp = !forTest && (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M || DataStore.requireHttp)
     val requireTransproxy = if (forTest) false else DataStore.requireTransproxy
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
-    val uidTag = hashMapOf<Int, String>()
-    val uidMap = hashMapOf<Int, Int>()
-    val uidInbounds = arrayListOf<String>()
-    val vpnMode = DataStore.vpnMode
-    val utlsFingerprint = DataStore.utlsFingerprint.takeIf { it.isNotBlank() }
+    var dumpUid = false
+    val alerts = mutableListOf<Pair<Int, String>>()
 
     return V2RayConfig().apply {
-
-        fun RuleEntity.uidTags(): Collection<String> {
-            if (vpnMode != VpnMode.EXPERIMENTAL_FORWARDING) error(app.getString(R.string.need_nf))
-
-            val uids = packages.mapNotNull { PackageCache[it] }
-            val tags = hashSetOf<String>()
-            for (uid in uids) {
-                val tagVal = uidTag[uid]
-                if (tagVal != null) {
-                    tags.add(tagVal)
-                    continue
-                }
-                val tagName = "uid-$uid"
-                val uidPort = mkPort()
-                uidMap[uid] = uidPort
-                uidTag[uid] = tagName
-                uidInbounds.add(tagName)
-                tags.add(tagName)
-                inbounds.add(InboundObject().apply {
-                    tag = tagName
-                    listen = LOCALHOST
-                    port = uidPort
-                    protocol = "socks"
-                    settings = LazyInboundConfigurationObject(this,
-                        SocksInboundConfigurationObject().apply {
-                            auth = "noauth"
-                            udp = true
-                            userLevel = 8
-                        })
-                    if (trafficSniffing || useFakeDns) {
-                        sniffing = InboundObject.SniffingObject().apply {
-                            enabled = true
-                            destOverride = if (useFakeDns) {
-                                listOf("fakedns", "http", "tls")
-                            } else {
-                                listOf("http", "tls")
-                            }
-                            metadataOnly = false
-                        }
-                    }
-                })
-            }
-
-            return tags
-        }
 
         dns = DnsObject().apply {
             hosts = DataStore.hosts.split("\n")
@@ -240,7 +195,7 @@ fun buildV2RayConfig(
         }
 
         log = LogObject().apply {
-            loglevel = if (DataStore.enableLog) "debug" else "error"
+            loglevel = if (!forTest && DataStore.enableLog) "debug" else "error"
         }
 
         policy = PolicyObject().apply {
@@ -286,7 +241,7 @@ fun buildV2RayConfig(
             inbounds.add(InboundObject().apply {
                 tag = TAG_HTTP
                 listen = bind
-                port = if (forTest) testPort else DataStore.httpPort
+                port = DataStore.httpPort
                 protocol = "http"
                 settings = LazyInboundConfigurationObject(this,
                     HTTPInboundConfigurationObject().apply {
@@ -385,8 +340,7 @@ fun buildV2RayConfig(
             }
         }
 
-        val enableExperimentalTun = DataStore.vpnMode == VpnMode.EXPERIMENTAL_FORWARDING
-        val needIncludeSelf = enableExperimentalTun || proxy.balancerBean == null && proxies.size > 1 || extraProxies.any { (key, value) ->
+        val needIncludeSelf = proxy.balancerBean == null && proxies.size > 1 || extraProxies.any { (key, value) ->
             val (_, balancer) = key
             val (isBalancer, _) = balancer
             isBalancer && value.size > 1
@@ -394,6 +348,7 @@ fun buildV2RayConfig(
 
         var rootBalancer: RoutingObject.RuleObject? = null
 
+        val utlsFingerprint = DataStore.utlsFingerprint
         fun buildChain(
             tagOutbound: String,
             profileList: List<ProxyEntity>,
@@ -410,9 +365,6 @@ fun buildV2RayConfig(
             var chainOutbound = ""
 
             profileList.forEachIndexed { index, proxyEntity ->
-                Logs.d("Index $index, proxyEntity: ")
-                Logs.d(formatObject(proxyEntity))
-
                 val bean = proxyEntity.requireBean()
                 currentOutbound = OutboundObject()
 
@@ -466,9 +418,6 @@ fun buildV2RayConfig(
                     }
                 } else {
                     currentOutbound.apply {
-                        val keepAliveInterval = DataStore.tcpKeepAliveInterval
-                        val needKeepAliveInterval = keepAliveInterval !in intArrayOf(0, 15)
-
                         if (bean is SOCKSBean) {
                             protocol = "socks"
                             settings = LazyOutboundConfigurationObject(this,
@@ -497,8 +446,8 @@ fun buildV2RayConfig(
                                                 serverName = bean.sni
                                             }
 
-                                            utlsFingerprint?.also {
-                                                fingerprint = it
+                                            if (utlsFingerprint.isNotBlank()) {
+                                                fingerprint = utlsFingerprint
                                             }
                                         }
                                     }
@@ -531,8 +480,8 @@ fun buildV2RayConfig(
                                             if (bean.sni.isNotBlank()) {
                                                 serverName = bean.sni
                                             }
-                                            utlsFingerprint?.also {
-                                                fingerprint = it
+                                            if (utlsFingerprint.isNotBlank()) {
+                                                fingerprint = utlsFingerprint
                                             }
                                         }
                                     }
@@ -615,8 +564,8 @@ fun buildV2RayConfig(
                                         allowInsecure = true
                                     }
 
-                                    utlsFingerprint?.also {
-                                        fingerprint = it
+                                    if (utlsFingerprint.isNotBlank()) {
+                                        fingerprint = utlsFingerprint
                                     }
                                 }
                                 when (security) {
@@ -747,20 +696,13 @@ fun buildV2RayConfig(
                                     if (bean.sni.isNotBlank()) {
                                         serverName = bean.sni
                                     }
-
                                     if (bean.alpn.isNotBlank()) {
                                         alpn = bean.alpn.split("\n")
                                     }
-
-                                    utlsFingerprint?.also {
-                                        fingerprint = it
-                                    }
-
-                                    if (bean.allowInsecure) {
-                                        allowInsecure = true
+                                    if (utlsFingerprint.isNotBlank()) {
+                                        fingerprint = utlsFingerprint
                                     }
                                 }
-
                                 when (security) {
                                     "tls" -> tlsSettings = settings
                                     "xtls" -> xtlsSettings = settings
@@ -781,9 +723,9 @@ fun buildV2RayConfig(
                 if (!isBalancer && index > 0) {
                     if (!pastExternal) {
                         pastOutbound.proxySettings = OutboundObject.ProxySettingsObject().apply {
-                                tag = tagIn
-                                transportLayer = true
-                            }
+                            tag = tagIn
+                            transportLayer = true
+                        }
                     } else {
                         routing.rules.add(RoutingObject.RuleObject().apply {
                             type = "field"
@@ -884,7 +826,6 @@ fun buildV2RayConfig(
 
                         if (!forTest) {
                             inboundTag.add(TAG_SOCKS)
-                            inboundTag.addAll(uidInbounds)
                         }
                         if (requireHttp) inboundTag.add(TAG_HTTP)
                         if (requireTransproxy) inboundTag.add(TAG_TRANS)
@@ -918,16 +859,32 @@ fun buildV2RayConfig(
             }
         }
 
-        extraRules.forEach { rule ->
+        val notVpn = DataStore.serviceMode != Key.MODE_VPN
+        val foregroundDetectorServiceStarted = ForegroundDetectorService::class.isRunning()
+
+        for (rule in extraRules) {
+            if (rule.packages.isNotEmpty() || rule.appStatus.isNotEmpty()) {
+                dumpUid = true
+                if (notVpn) {
+                    alerts.add(0 to rule.displayName())
+                    continue
+                }
+            }
+            if (rule.appStatus.isNotEmpty() && !foregroundDetectorServiceStarted) {
+                alerts.add(1 to rule.displayName())
+            }
             routing.rules.add(RoutingObject.RuleObject().apply {
                 type = "field"
                 if (rule.packages.isNotEmpty()) {
-                    val tags = rule.uidTags()
-                    if (tags.isNotEmpty()) {
-                        inboundTag = mutableListOf()
-                        inboundTag.addAll(tags)
-                    }
+                    PackageCache.awaitLoadSync()
+                    uidList = rule.packages.map {
+                        PackageCache[it]?.takeIf { uid -> uid >= 10000 } ?: 1000
+                    }.toHashSet().toList()
                 }
+                if (rule.appStatus.isNotEmpty()) {
+                    appStatus = rule.appStatus
+                }
+
                 if (rule.domains.isNotBlank()) {
                     domain = rule.domains.split("\n")
                 }
@@ -965,11 +922,13 @@ fun buildV2RayConfig(
                     }
                 }
             })
+
             if (rule.reverse) {
                 outbounds.add(OutboundObject().apply {
                     tag = "reverse-out-${rule.id}"
                     protocol = "freedom"
-                    settings = LazyOutboundConfigurationObject(this,
+                    settings = LazyOutboundConfigurationObject(
+                        this,
                         FreedomOutboundConfigurationObject().apply {
                             redirect = rule.redirect
                         })
@@ -1123,6 +1082,15 @@ fun buildV2RayConfig(
             outboundTag = TAG_DNS_OUT
         })
 
+        if (allowAccess) {
+            // temp: fix crash
+            routing.rules.add(RoutingObject.RuleObject().apply {
+                type = "field"
+                ip = listOf("255.255.255.255")
+                outboundTag = TAG_BLOCK
+            })
+        }
+
         if (rootBalancer != null) routing.rules.add(rootBalancer)
 
         stats = emptyMap()
@@ -1174,7 +1142,8 @@ fun buildV2RayConfig(
             TAG_BYPASS,
             !it.api?.services.isNullOrEmpty(),
             it.observatory?.subjectSelector ?: HashSet(),
-            uidMap
+            dumpUid,
+            alerts
         )
     }
 
@@ -1296,15 +1265,16 @@ fun buildCustomConfig(proxy: ProxyEntity, port: Int): V2rayBuildResult {
 
     return V2rayBuildResult(
         config.toStringPretty(),
-        listOf(),
+        emptyList(),
         requireWs,
         outboundTags,
         outboundTags,
-        mapOf(),
+        emptyMap(),
         directTag,
         false,
-        setOf(),
-        mapOf()
+        emptySet(),
+        false,
+        emptyList()
     )
 
 }

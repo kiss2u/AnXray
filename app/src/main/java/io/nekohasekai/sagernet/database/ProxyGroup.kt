@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -24,6 +22,7 @@ package io.nekohasekai.sagernet.database
 import androidx.room.*
 import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
+import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.Serializable
@@ -37,7 +36,8 @@ data class ProxyGroup(
     var ungrouped: Boolean = false,
     var name: String? = null,
     var type: Int = GroupType.BASIC,
-    var subscription: SubscriptionBean? = null
+    var subscription: SubscriptionBean? = null,
+    var order: Int = GroupOrder.ORIGIN,
 ) : Serializable() {
 
     @Transient
@@ -135,6 +135,7 @@ data class ProxyGroup(
     }
 
     companion object CREATOR : Serializable.CREATOR<ProxyGroup>() {
+
         override fun newInstance(): ProxyGroup {
             return ProxyGroup()
         }

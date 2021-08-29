@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -33,18 +33,24 @@ import cn.hutool.json.JSONException
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.BootReceiver
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.aidl.AppStatsList
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.aidl.TrafficStats
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.broadcastReceiver
-import io.nekohasekai.sagernet.ktx.readableMessage
-import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import io.nekohasekai.sagernet.fmt.TAG_SOCKS
+import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.plugin.PluginManager
+import io.nekohasekai.sagernet.utils.PackageCache
 import kotlinx.coroutines.*
+import libcore.AppStats
+import libcore.Libcore
+import libcore.TrafficListener
 import java.net.UnknownHostException
+import com.github.shadowsocks.plugin.PluginManager as ShadowsocksPluginPluginManager
+import io.nekohasekai.sagernet.aidl.AppStats as AidlAppStats
 
 class BaseService {
 
@@ -89,16 +95,20 @@ class BaseService {
 
     class Binder(private var data: Data? = null) : ISagerNetService.Stub(),
         CoroutineScope,
-        AutoCloseable {
+        AutoCloseable,
+        TrafficListener {
         private val callbacks = object : RemoteCallbackList<ISagerNetServiceCallback>() {
             override fun onCallbackDied(callback: ISagerNetServiceCallback?, cookie: Any?) {
                 super.onCallbackDied(callback, cookie)
                 stopListeningForBandwidth(callback ?: return)
+                stopListeningForStats(callback)
             }
         }
         private val bandwidthListeners = mutableMapOf<IBinder, Long>()  // the binder is the real identifier
+        private val statsListeners = mutableMapOf<IBinder, Long>()  // the binder is the real identifier
         override val coroutineContext = Dispatchers.Main.immediate + Job()
         private var looper: Job? = null
+        private var statsLooper: Job? = null
 
         override fun getState(): Int = (data?.state ?: State.Idle).ordinal
         override fun getProfileName(): String = data?.proxy?.profile?.displayName() ?: "Idle"
@@ -162,6 +172,55 @@ class BaseService {
 
         }
 
+        val appStats = ArrayList<AppStats>()
+        override fun updateStats(t: AppStats) {
+            appStats.add(t)
+        }
+
+        private suspend fun loopStats() {
+            var lastQueryTime = 0L
+            val tun = (data?.proxy?.service as? VpnService)?.tun2socks ?: return
+            if (!tun.trafficStatsEnabled) return
+
+            while (true) {
+                val delayMs = statsListeners.values.minOrNull()
+                if (delayMs == 0L) return
+                val queryTime = System.currentTimeMillis()
+                val sinceLastQueryInSeconds = ((queryTime - lastQueryTime).toDouble() / 1000).toLong()
+                lastQueryTime = queryTime
+
+                appStats.clear()
+                tun.readAppTraffics(this)
+
+                val statsList = AppStatsList(appStats.map {
+                    val uid = if (it.uid >= 10000) it.uid else 1000
+                    val packageName = if (uid != 1000) {
+                        PackageCache.uidMap[it.uid]?.iterator()?.next() ?: "android"
+                    } else {
+                        "android"
+                    }
+                    AidlAppStats(
+                        packageName,
+                        uid, it.tcpConn, it.udpConn, it.tcpConnTotal, it.udpConnTotal,
+                        it.uplink / sinceLastQueryInSeconds,
+                        it.downlink / sinceLastQueryInSeconds,
+                        it.uplinkTotal,
+                        it.downlinkTotal,
+                        it.deactivateAt
+                    )
+                })
+                if (data?.state == State.Connected && statsListeners.isNotEmpty()) {
+                    broadcast { item ->
+                        if (statsListeners.contains(item.asBinder())) {
+                            item.statsUpdated(statsList)
+                        }
+                    }
+                }
+                delay(delayMs ?: return)
+            }
+
+        }
+
         override fun startListeningForBandwidth(
             cb: ISagerNetServiceCallback,
             timeout: Long,
@@ -193,11 +252,65 @@ class BaseService {
 
         override fun unregisterCallback(cb: ISagerNetServiceCallback) {
             stopListeningForBandwidth(cb)   // saves an RPC, and safer
+            stopListeningForStats(cb)
             callbacks.unregister(cb)
         }
 
         override fun protect(fd: Int) {
             (data?.proxy?.service as VpnService?)?.protect(fd)
+        }
+
+        override fun urlTest(): Int {
+            if (data?.proxy?.v2rayPoint == null) {
+                error("core not started")
+            }
+            try {
+                return Libcore.urlTestV2ray(
+                    data!!.proxy!!.v2rayPoint, TAG_SOCKS, DataStore.connectionTestURL, 5000
+                )
+            } catch (e: Exception) {
+                var msg = e.readableMessage
+                if (msg.lowercase().contains("timeout")) {
+                    msg = app.getString(R.string.connection_test_timeout)
+                } else if (msg.lowercase().contains("refused")) {
+                    msg = app.getString(R.string.connection_test_refused)
+                }
+                error(msg)
+            }
+        }
+
+        override fun startListeningForStats(cb: ISagerNetServiceCallback, timeout: Long) {
+            launch {
+                if (statsListeners.isEmpty() and (statsListeners.put(
+                        cb.asBinder(), timeout
+                    ) == null)
+                ) {
+                    check(statsLooper == null)
+                    statsLooper = launch { loopStats() }
+                }
+            }
+        }
+
+        override fun stopListeningForStats(cb: ISagerNetServiceCallback) {
+            launch {
+                if (statsListeners.remove(cb.asBinder()) != null && statsListeners.isEmpty()) {
+                    statsLooper!!.cancel()
+                    statsLooper = null
+                }
+            }
+        }
+
+        override fun resetTrafficStats() {
+            runOnDefaultDispatcher {
+                SagerDatabase.statsDao.deleteAll()
+                (data?.proxy?.service as? VpnService)?.tun2socks?.resetAppTraffics()
+                val empty = AppStatsList(emptyList())
+                broadcast { item ->
+                    if (statsListeners.contains(item.asBinder())) {
+                        item.statsUpdated(empty)
+                    }
+                }
+            }
         }
 
         fun stateChanged(s: State, msg: String?) = launch {
@@ -209,6 +322,15 @@ class BaseService {
             if (bandwidthListeners.isNotEmpty() && ids.isNotEmpty()) broadcast { item ->
                 if (bandwidthListeners.contains(item.asBinder())) ids.forEach(item::profilePersisted)
             }
+        }
+
+        fun missingPlugin(pluginName: String) = launch {
+            val profileName = profileName
+            broadcast { it.missingPlugin(profileName, pluginName) }
+        }
+
+        override fun getTrafficStatsEnabled(): Boolean {
+            return (data?.proxy?.service as? VpnService)?.tun2socks?.trafficStatsEnabled ?: false
         }
 
         override fun close() {
@@ -278,18 +400,17 @@ class BaseService {
 
                 // change the state
                 data.changeState(State.Stopped, msg)
-                DataStore.startedProfile = 0L
-
                 // stop the service if nothing has bound to it
                 if (restart) startRunner() else { //   BootReceiver.enabled = false
-                    if (!keepState) DataStore.currentProfile = 0L
                     stopSelf()
                 }
             }
         }
 
         fun persistStats() {
+            Logs.w(Exception())
             data.proxy?.persistStats()
+            (this as? VpnService)?.persistAppStats()
         }
 
         suspend fun preInit() {}
@@ -337,12 +458,25 @@ class BaseService {
                     DataStore.startedProfile = profile.id
                     startProcesses()
                     data.changeState(State.Connected)
+
+                    for ((type, routeName) in proxy.config.alerts) {
+                        data.binder.broadcast {
+                            it.routeAlert(type, routeName)
+                        }
+                    }
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
                 } catch (_: UnknownHostException) {
                     stopRunner(false, getString(R.string.invalid_server))
+                } catch (e: PluginManager.PluginNotFoundException) {
+                    Logs.d(e.readableMessage)
+                    data.binder.missingPlugin(e.plugin)
+                    stopRunner(false, null)
+                } catch (e: ShadowsocksPluginPluginManager.PluginNotFoundException) {
+                    Logs.d(e.readableMessage)
+                    data.binder.missingPlugin("shadowsocks-" + e.plugin)
+                    stopRunner(false, null)
                 } catch (exc: Throwable) {
                     if (exc is ExpectedException) Logs.d(exc.readableMessage) else Logs.w(exc)
-                    Logs.w(exc)
                     stopRunner(
                         false, "${getString(R.string.service_failed)}: ${exc.readableMessage}"
                     )

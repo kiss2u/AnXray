@@ -18,6 +18,7 @@
     <string name="group_default">Ungrouped</string>
     <string name="quick_toggle">Toggle</string>
     <string name="tile_title">Switcher</string>
+    <string name="menu_traffic">Traffic</string>
     <!-- group -->
     <string name="group_name">Group name</string>
     <string name="group_update">Update</string>
@@ -67,13 +68,13 @@
     <string name="security_settings">Security Settings</string>
     <string name="allow_insecure">Allow Insecure</string>
     <string name="allow_insecure_sum">Disable certificate checking. When enabled, this configuration is as secure as plaintext</string>
-    <string name="traffic">%1$s↑ %2$s↓</string>
+    <string name="traffic" translatable="false">%1$s↑ %2$s↓</string>
     <string name="speed_detail">Proxy： %1$s↑ %2$s↓\nDirect： %3$s↑ %4$s↓</string>
     <string name="speed">%s/s</string>
     <string name="connection_test_testing">Testing…</string>
     <string name="connection_test_available">Success: HTTPS handshake took %dms</string>
     <string name="connection_test_available_http">Success: HTTP handshake took %dms</string>
-    <string name="connection_test_error">Fail to detect internet connection: %s</string>
+    <string name="connection_test_error">Failed: %s</string>
     <string name="connection_test_fail">Internet Unavailable</string>
     <string name="connection_test_error_status_code">Error code: #%d</string>
     <string name="cag_dns">DNS Settings</string>
@@ -326,23 +327,12 @@
     <string name="connection_test_icmp_ping" translatable="false">ICMPing</string>
     <string name="connection_test_icmp_ping_unavailable">ICMPing unavailable</string>
     <string name="connection_test_url_test" translatable="false">URL Test</string>
-    <string name="connection_test_url_test_reuse_mode" translatable="false">URL Reuse</string>
-    <string name="connection_test_reorder">Reorder by delay</string>
     <string name="connection_test_domain_not_found">Domain not found</string>
     <string name="connection_test_refused">Connection refused</string>
     <string name="connection_test_unreachable">Unreachable</string>
     <string name="connection_test_timeout">Timeout</string>
     <string name="append_http_proxy">Append HTTP Proxy to VPN</string>
     <string name="append_http_proxy_sum">HTTP proxy will be used directly from (browser/ some supported apps), without going through the virtual NIC device (Android 10+)</string>
-    <string name="vpn_settings">VPN Settings</string>
-    <string name="vpn_mode">VPN Mode</string>
-    <string name="vpn_mode_forwarding">Native Forwarding</string>
-    <string name="icmp_echo_strategy">ICMP Echo Strategy</string>
-    <string name="icmp_echo_reply_delay">ICMP Echo Reply Delay</string>
-    <string name="ip_other_strategy">Other Internet Protocol Strategy</string>
-    <string name="drop">Drop</string>
-    <string name="direct">Direct</string>
-    <string name="reply">Reply</string>
     <string name="bypass_lan_in_core_only">Bypass LAN in Core Only</string>
     <string name="bypass_lan_in_core_only_sum">If Lineage\'s "Allow hotspot clients to use VPNs" does not work, try this.</string>
     <string name="protocol_settings">Protocol Settings</string>
@@ -370,7 +360,7 @@
     <string name="subscription_user_agent">UserAgent</string>
     <string name="confirm">Confirm</string>
     <string name="missing_plugin">Missing Plugin</string>
-    <string name="profile_requiring_plugin">%s requires the %s plugin to be installed, but it was not found.</string>
+    <string name="profile_requiring_plugin">Profile %s requires the %s plugin to be installed, but it was not found.</string>
     <string name="action_learn_more">LEARN MORE</string>
     <string name="action_download">DOWNLOAD</string>
     <string name="install_from_play_store">Install from Play Store</string>
@@ -400,7 +390,6 @@
     <string name="apps">Applications</string>
     <string name="select_apps">Select Applications</string>
     <string name="apps_message">%d Applications</string>
-    <string name="need_nf">To support application-based routing, the VPN Mode must be Native Forwarding.</string>
     <string name="hysteria_obfs">Obfuscation Password</string>
     <string name="hysteria_auth_type">Authentication Type</string>
     <string name="hysteria_auth_payload">Authentication Payload</string>
@@ -410,5 +399,56 @@
     <string name="experimental_authenticated_length">Make the length of each payload segment no longer malleable. This experiment requires the server and client use the same version of v2ray-core. More breaking updates on this experiment is expected.</string>
     <string name="experimental_no_termination_signal">Do not send connection single duplex termination signal for TCP connection when transferred over VMess. This will break some application.</string>
     <string name="utls_fingerprint">uTLS Fingerprint</string>
-    <string name="tun_implementation">Tun Implementation</string>
+    <string name="hysteria_stream_receive_window">QUIC Stream Receive Window</string>
+    <string name="hysteria_connection_receive_window">QUIC Connection Receive Window</string>
+    <string name="hysteria_disable_mtu_discovery">Disable Path MTU Discovery</string>
+    <string name="group_order">Order</string>
+    <string name="group_order_origin">Origin</string>
+    <string name="group_order_by_name">By Name</string>
+    <string name="group_order_by_delay">By Delay</string>
+    <string name="plugin_exists_but_on_shit_system">Profile %s requires the %s plugin, but your proprietary equipment vendor (usually surveillance capital giants and malware maker) tampered with your Android, making the plugin unusable.</string>
+
+    <string name="shadowsocks_plugin_simple_obfs">Simple Obfs (Shadowsocks Android Plugin)</string>
+    <string name="shadowsocks_plugin_v2ray">V2Ray (Shadowsocks Android Plugin)</string>
+
+    <string name="traffic_uplink" translatable="false">%s | %s/s ↑</string>
+    <string name="traffic_downlink" translatable="false">%s | %s/s ↓</string>
+
+    <string name="traffic_uplink_total" translatable="false">%s ↑</string>
+    <string name="traffic_downlink_total" translatable="false">%s ↓</string>
+    <string name="traffic_active">Active</string>
+    <string name="traffic_stats">Statistics</string>
+
+    <string name="tcp_connections">%d TCP connections</string>
+    <string name="udp_connections">%d UDP connections</string>
+
+    <string name="traffic_holder">Open VPN to record traffic statistics</string>
+
+    <string name="copy_label">Copy Name</string>
+    <string name="copy_package_name">Copy Package Name</string>
+    <string name="open_app">Open App</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="open_market">Open Market</string>
+    <string name="create_rule">Create Rule</string>
+
+    <string name="copy_success">Copy success!</string>
+    <string name="copy_failed">Copy failed.</string>
+    <string name="app_no_launcher">The app has no interface.</string>
+    <string name="route_for">Rule for %s</string>
+
+    <string name="foreground_detector">Foreground detector</string>
+    <string name="foreground_detector_summary">This service provides support for routing rules based on the foreground state of apps. If it is not started, the result is always in the background.</string>
+
+    <string name="foreground_status">Foreground Status</string>
+    <string name="foreground">Foreground</string>
+    <string name="background">Background</string>
+
+    <string name="route_need_vpn">Routing rule %s relies on the VPN to be in effect, so it is ignored.</string>
+    <string name="route_need_fds">Routing rule %s relies on the Foreground Detector Service to be in effect, but is not enabled.</string>
+
+    <string name="traffic_statistics">Enable Traffic Statistics</string>
+    <string name="traffic_statistics_summary">May increase power consumption</string>
+    <string name="no_statistics">No statistics yet</string>
+    <string name="statistics_disabled">Traffic statistics disabled</string>
+
 </resources>

@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -43,6 +41,7 @@ import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.takisoft.preferencex.PreferenceFragmentCompat
+import io.nekohasekai.sagernet.AppStatus
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
@@ -50,9 +49,11 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
+import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.utils.DirectBoot
+import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.AppListPreference
 import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.OutboundPreference
@@ -64,8 +65,13 @@ class RouteSettingsActivity(
 ) : ThemedActivity(resId),
     OnPreferenceDataStoreChangeListener {
 
-    fun init() {
-        RuleEntity().init()
+    fun init(packageName: String?) {
+        RuleEntity().apply {
+            if (!packageName.isNullOrBlank()) {
+                packages = listOf(packageName)
+                name = app.getString(R.string.route_for, PackageCache.loadLabel(packageName))
+            }
+        }.init()
     }
 
     fun RuleEntity.init() {
@@ -88,6 +94,13 @@ class RouteSettingsActivity(
         DataStore.routeReverse = reverse
         DataStore.routeRedirect = redirect
         DataStore.routePackages = packages.joinToString("\n")
+        DataStore.routeForegroundStatus = ""
+
+        for (status in appStatus) when (status) {
+            AppStatus.FOREGROUND, AppStatus.BACKGROUND -> {
+                DataStore.routeForegroundStatus = status
+            }
+        }
     }
 
     fun RuleEntity.serialize() {
@@ -109,11 +122,19 @@ class RouteSettingsActivity(
         reverse = DataStore.routeReverse
         redirect = DataStore.routeRedirect
         packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }
+        val routeForegroundStatus = DataStore.routeForegroundStatus
+        if (routeForegroundStatus.isNotBlank()) {
+            appStatus = listOf(routeForegroundStatus)
+        }
+
+        if (DataStore.editingId == 0L) {
+            enabled = true
+        }
     }
 
     fun needSave(): Boolean {
         if (!DataStore.dirty) return false
-        if (DataStore.routePackages.isBlank() && DataStore.routeDomain.isBlank() && DataStore.routeIP.isBlank() && DataStore.routePort.isBlank() && DataStore.routeSourcePort.isBlank() && DataStore.routeNetwork.isBlank() && DataStore.routeSource.isBlank() && DataStore.routeProtocol.isBlank() && DataStore.routeAttrs.isBlank() && !(DataStore.routeReverse && DataStore.routeRedirect.isNotBlank())) {
+        if (DataStore.routePackages.isBlank() && DataStore.routeForegroundStatus.isBlank() && DataStore.routeDomain.isBlank() && DataStore.routeIP.isBlank() && DataStore.routePort.isBlank() && DataStore.routeSourcePort.isBlank() && DataStore.routeNetwork.isBlank() && DataStore.routeSource.isBlank() && DataStore.routeProtocol.isBlank() && DataStore.routeAttrs.isBlank() && !(DataStore.routeReverse && DataStore.routeRedirect.isNotBlank())) {
             return false
         }
         return true
@@ -233,6 +254,7 @@ class RouteSettingsActivity(
 
     companion object {
         const val EXTRA_ROUTE_ID = "id"
+        const val EXTRA_PACKAGE_NAME = "pkg"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -249,7 +271,7 @@ class RouteSettingsActivity(
             DataStore.editingId = editingId
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
-                    init()
+                    init(intent.getStringExtra(EXTRA_PACKAGE_NAME))
                 } else {
                     val ruleEntity = SagerDatabase.rulesDao.getById(editingId)
                     if (ruleEntity == null) {
@@ -292,6 +314,10 @@ class RouteSettingsActivity(
 
         val editingId = DataStore.editingId
         if (editingId == 0L) {
+            if (intent.hasExtra(EXTRA_PACKAGE_NAME)) {
+                setResult(RESULT_OK, Intent())
+            }
+
             ProfileManager.createRule(RuleEntity().apply { serialize() })
         } else {
             val entity = SagerDatabase.rulesDao.getById(DataStore.editingId)

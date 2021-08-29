@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -23,16 +21,13 @@ package io.nekohasekai.sagernet.bg.proto
 
 import cn.hutool.json.JSONObject
 import com.github.shadowsocks.plugin.PluginConfiguration
-import io.nekohasekai.sagernet.bg.AbstractInstance
+import io.nekohasekai.sagernet.bg.ClashBasedInstance
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
-import kotlinx.coroutines.CoroutineScope
-import libcore.ShadowsocksInstance
+import libcore.Libcore
 
-class ShadowsocksInstance(val server: ShadowsocksBean, val port: Int) : AbstractInstance {
+class ShadowsocksInstance(val server: ShadowsocksBean, val port: Int) : ClashBasedInstance() {
 
-    lateinit var point: ShadowsocksInstance
-
-    override fun launch() {
+    override fun createInstance() {
         var pluginName = ""
         val pluginOpts = JSONObject()
 
@@ -60,20 +55,15 @@ class ShadowsocksInstance(val server: ShadowsocksBean, val port: Int) : Abstract
             }
         }
 
-        point = ShadowsocksInstance(
-            port.toLong(),
+        instance = Libcore.newShadowsocksInstance(
+            port,
             server.finalAddress,
-            server.finalPort.toLong(),
+            server.finalPort,
             server.password,
             server.method,
             pluginName,
             pluginOpts.toStringPretty()
         )
-        point.start()
-    }
-
-    override fun destroy(scope: CoroutineScope) {
-        if (::point.isInitialized) point.close()
     }
 
 }

@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -43,7 +41,7 @@ class AppListPreference : Preference {
 
     override fun getSummary(): CharSequence {
         val packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.map {
-            PackageCache.installPackages[it]?.applicationInfo?.loadLabel(app.packageManager) ?: it
+            PackageCache.installedPackages[it]?.applicationInfo?.loadLabel(app.packageManager) ?: it
         }
         if (packages.isEmpty()) {
             return context.getString(androidx.preference.R.string.not_set)

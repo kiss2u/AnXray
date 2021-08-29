@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -42,10 +40,14 @@ public class HysteriaBean extends AbstractBean {
 
     public String obfuscation;
     public String sni;
+    public String caText;
 
     public Integer uploadMbps;
     public Integer downloadMbps;
     public Boolean allowInsecure;
+    public Integer streamReceiveWindow;
+    public Integer connectionReceiveWindow;
+    public Boolean disableMtuDiscovery;
 
     @Override
     public void initializeDefaultValues() {
@@ -54,22 +56,35 @@ public class HysteriaBean extends AbstractBean {
         if (authPayload == null) authPayload = "";
         if (obfuscation == null) obfuscation = "";
         if (sni == null) sni = "";
+        if (caText == null) caText = "";
+
         if (uploadMbps == null) uploadMbps = 10;
         if (downloadMbps == null) downloadMbps = 50;
         if (allowInsecure == null) allowInsecure = false;
+
+        if (streamReceiveWindow == null) streamReceiveWindow = 0;
+        if (connectionReceiveWindow == null) connectionReceiveWindow = 0;
+        if (disableMtuDiscovery == null) disableMtuDiscovery = false;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(0);
+        output.writeInt(1);
         super.serialize(output);
         output.writeInt(authPayloadType);
         output.writeString(authPayload);
         output.writeString(obfuscation);
         output.writeString(sni);
+
         output.writeInt(uploadMbps);
         output.writeInt(downloadMbps);
         output.writeBoolean(allowInsecure);
+
+        output.writeString(caText);
+        output.writeInt(streamReceiveWindow);
+        output.writeInt(connectionReceiveWindow);
+        output.writeBoolean(disableMtuDiscovery);
+
     }
 
     @Override
@@ -83,6 +98,12 @@ public class HysteriaBean extends AbstractBean {
         uploadMbps = input.readInt();
         downloadMbps = input.readInt();
         allowInsecure = input.readBoolean();
+        if (version >= 1) {
+            caText = input.readString();
+            streamReceiveWindow = input.readInt();
+            connectionReceiveWindow = input.readInt();
+            disableMtuDiscovery = input.readBoolean();
+        }
     }
 
     @Override
@@ -92,6 +113,7 @@ public class HysteriaBean extends AbstractBean {
         bean.uploadMbps = uploadMbps;
         bean.downloadMbps = downloadMbps;
         bean.allowInsecure = allowInsecure;
+        bean.disableMtuDiscovery = disableMtuDiscovery;
     }
 
     @NotNull

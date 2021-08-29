@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -84,20 +82,13 @@ object Key {
 
     const val API_PORT = "apiPort"
     const val ALWAYS_SHOW_ADDRESS = "alwaysShowAddress"
-    const val ENABLE_EXPERIMENTAL_TUN = "enableExperimentalTun"
-
-    const val VPN_MODE = "vpnMode"
-    const val MULTI_THREAD_FORWARD = "multiThreadForward"
-    const val ICMP_ECHO_STRATEGY = "icmpEchoStrategy"
-    const val ICMP_ECHO_REPLY_DELAY = "icmpEchoReplyDelay"
-    const val IP_OTHER_STRATEGY = "ipOtherStrategy"
 
     const val PROVIDER_TROJAN = "providerTrojan"
     const val PROVIDER_SS_AEAD = "providerShadowsocksAEAD"
     const val PROVIDER_SS_STREAM = "providerShadowsocksStream"
 
     const val UTLS_FINGERPRINT = "utlsFingerprint"
-    const val TUN_IMPLEMENTATION = "tunImplementation"
+    const val TRAFFIC_STATISTICS = "trafficStatistics"
 
     const val PROFILE_DIRTY = "profileDirty"
     const val PROFILE_ID = "profileId"
@@ -147,6 +138,9 @@ object Key {
     const val SERVER_AUTH_TYPE = "serverAuthType"
     const val SERVER_UPLOAD_SPEED = "serverUploadSpeed"
     const val SERVER_DOWNLOAD_SPEED = "serverDownloadSpeed"
+    const val SERVER_STREAM_RECEIVE_WINDOW = "serverStreamReceiveWindow"
+    const val SERVER_CONNECTION_RECEIVE_WINDOW = "serverConnectionReceiveWindow"
+    const val SERVER_DISABLE_MTU_DISCOVERY = "serverDisableMtuDiscovery"
 
     const val SERVER_VMESS_EXPERIMENTS_CATEGORY = "serverVMessExperimentsCategory"
     const val SERVER_VMESS_EXPERIMENTAL_AUTHENTICATED_LENGTH = "serverVMessExperimentalAuthenticatedLength"
@@ -170,9 +164,11 @@ object Key {
     const val ROUTE_REVERSE = "routeReverse"
     const val ROUTE_REDIRECT = "routeRedirect"
     const val ROUTE_PACKAGES = "routePackages"
+    const val ROUTE_FOREGROUND_STATUS = "routeForegroundStatus"
 
     const val GROUP_NAME = "groupName"
     const val GROUP_TYPE = "groupType"
+    const val GROUP_ORDER = "groupOrder"
 
     const val GROUP_SUBSCRIPTION = "groupSubscription"
     const val SUBSCRIPTION_TYPE = "subscriptionType"
@@ -195,7 +191,7 @@ object TrojanProvider {
     const val TROJAN_GO = 2
 }
 
-object ShadowsocksAEADProvider {
+object ShadowsocksProvider {
     const val V2RAY = 0
     const val SHADOWSOCKS_RUST = 1
     const val CLASH = 2
@@ -211,11 +207,6 @@ object IPv6Mode {
     const val ENABLE = 1
     const val PREFER = 2
     const val ONLY = 3
-}
-
-object VpnMode {
-    const val TUN2SOCKS = 0
-    const val EXPERIMENTAL_FORWARDING = 1
 }
 
 object PacketStrategy {
@@ -241,10 +232,15 @@ object ExtraType {
     const val SIP008 = 2
 }
 
-object TunImplementation {
-    const val BADVPN = 0
-    const val LWIP = 1
-    const val GVISOR = 2
+object GroupOrder {
+    const val ORIGIN = 0
+    const val BY_NAME = 1
+    const val BY_DELAY = 2
+}
+
+object AppStatus {
+    const val FOREGROUND = "foreground"
+    const val BACKGROUND = "background"
 }
 
 object Action {

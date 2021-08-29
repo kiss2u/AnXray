@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -21,20 +19,17 @@
 
 package io.nekohasekai.sagernet.bg.proto
 
-import io.nekohasekai.sagernet.bg.AbstractInstance
+import io.nekohasekai.sagernet.bg.ClashBasedInstance
 import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
-import kotlinx.coroutines.CoroutineScope
-import libcore.ShadowsocksRInstance
+import libcore.Libcore
 
-class ShadowsocksRInstance(val server: ShadowsocksRBean, val port: Int) : AbstractInstance {
+class ShadowsocksRInstance(val server: ShadowsocksRBean, val port: Int) : ClashBasedInstance() {
 
-    lateinit var point: ShadowsocksRInstance
-
-    override fun launch() {
-        point = ShadowsocksRInstance(
-            port.toLong(),
+    override fun createInstance() {
+        instance = Libcore.newShadowsocksRInstance(
+            port,
             server.finalAddress,
-            server.finalPort.toLong(),
+            server.finalPort,
             server.password,
             server.method,
             server.obfs,
@@ -42,10 +37,6 @@ class ShadowsocksRInstance(val server: ShadowsocksRBean, val port: Int) : Abstra
             server.protocol,
             server.protocolParam
         )
-        point.start()
     }
 
-    override fun destroy(scope: CoroutineScope) {
-        if (::point.isInitialized) point.close()
-    }
 }

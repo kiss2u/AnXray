@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -122,21 +122,21 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     // hopefully hashCode = mHandle doesn't change, currently this is true from KitKat to Nougat
     private val userIndex by lazy { Binder.getCallingUserHandle().hashCode() }
     var socksPort: Int
-        get() = getLocalPort(Key.SOCKS_PORT, 2080)
+        get() = getLocalPort(Key.SOCKS_PORT, 2081)
         set(value) = saveLocalPort(Key.SOCKS_PORT, value)
     var localDNSPort: Int
-        get() = getLocalPort(Key.LOCAL_DNS_PORT, 6450)
+        get() = getLocalPort(Key.LOCAL_DNS_PORT, 6451)
         set(value) {
             saveLocalPort(Key.LOCAL_DNS_PORT, value)
         }
     var httpPort: Int
-        get() = getLocalPort(Key.HTTP_PORT, 9080)
+        get() = getLocalPort(Key.HTTP_PORT, 9081)
         set(value) = saveLocalPort(Key.HTTP_PORT, value)
     var transproxyPort: Int
-        get() = getLocalPort(Key.TRANSPROXY_PORT, 9200)
+        get() = getLocalPort(Key.TRANSPROXY_PORT, 9201)
         set(value) = saveLocalPort(Key.TRANSPROXY_PORT, value)
     var apiPort: Int
-        get() = getLocalPort(Key.API_PORT, 9002)
+        get() = getLocalPort(Key.API_PORT, 9003)
         set(value) {
             saveLocalPort(Key.API_PORT, value)
         }
@@ -191,13 +191,8 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) { CONNECTION_TEST_URL }
     var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
-    var vpnMode by configurationStore.stringToInt(Key.VPN_MODE)
-    var icmpEchoStrategy by configurationStore.stringToInt(Key.ICMP_ECHO_STRATEGY)
-    var icmpEchoReplyDelay by configurationStore.stringToLong(Key.ICMP_ECHO_REPLY_DELAY) { 50 }
-    var ipOtherStrategy by configurationStore.stringToInt(Key.IP_OTHER_STRATEGY) { PacketStrategy.DIRECT }
-
     var utlsFingerprint by configurationStore.string(Key.UTLS_FINGERPRINT)
-    var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }
+    var trafficStatistics by configurationStore.boolean(Key.TRAFFIC_STATISTICS)
 
     // protocol
 
@@ -249,6 +244,9 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var serverAuthType by profileCacheStore.stringToInt(Key.SERVER_AUTH_TYPE)
     var serverUploadSpeed by profileCacheStore.stringToInt(Key.SERVER_UPLOAD_SPEED)
     var serverDownloadSpeed by profileCacheStore.stringToInt(Key.SERVER_DOWNLOAD_SPEED)
+    var serverStreamReceiveWindow by profileCacheStore.stringToIntIfExists(Key.SERVER_STREAM_RECEIVE_WINDOW)
+    var serverConnectionReceiveWindow by profileCacheStore.stringToIntIfExists(Key.SERVER_CONNECTION_RECEIVE_WINDOW)
+    var serverDisableMtuDiscovery by profileCacheStore.boolean(Key.SERVER_DISABLE_MTU_DISCOVERY)
 
     var serverProtocolVersion by profileCacheStore.stringToInt(Key.SERVER_PROTOCOL)
 
@@ -270,10 +268,14 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var routeReverse by profileCacheStore.boolean(Key.ROUTE_REVERSE)
     var routeRedirect by profileCacheStore.string(Key.ROUTE_REDIRECT)
     var routePackages by profileCacheStore.string(Key.ROUTE_PACKAGES)
+    var routeForegroundStatus by profileCacheStore.string(Key.ROUTE_FOREGROUND_STATUS)
+
+
     var serverConfig by profileCacheStore.string(Key.SERVER_CONFIG)
 
     var groupName by profileCacheStore.string(Key.GROUP_NAME)
     var groupType by profileCacheStore.stringToInt(Key.GROUP_TYPE)
+    var groupOrder by profileCacheStore.stringToInt(Key.GROUP_ORDER)
 
     var subscriptionType by profileCacheStore.stringToInt(Key.SUBSCRIPTION_TYPE)
     var subscriptionLink by profileCacheStore.string(Key.SUBSCRIPTION_LINK)

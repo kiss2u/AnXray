@@ -30,9 +30,6 @@ android {
 dependencies {
 
     implementation(fileTree("libs"))
-
-    implementation(project(":library:core"))
-    implementation(project(":library:epoll"))
     compileOnly(project(":library:include"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.1")
@@ -55,11 +52,11 @@ dependencies {
     implementation(project(":external:preferencex:preferencex-colorpicker"))
 
     implementation("com.google.android.material:material:1.4.0")
-    implementation("cn.hutool:hutool-core:5.7.9")
-    implementation("cn.hutool:hutool-cache:5.7.9")
-    implementation("cn.hutool:hutool-json:5.7.9")
-    implementation("cn.hutool:hutool-crypto:5.7.9")
-    implementation("com.google.code.gson:gson:2.8.7")
+    implementation("cn.hutool:hutool-core:5.7.10")
+    implementation("cn.hutool:hutool-cache:5.7.10")
+    implementation("cn.hutool:hutool-json:5.7.10")
+    implementation("cn.hutool:hutool-crypto:5.7.10")
+    implementation("com.google.code.gson:gson:2.8.8")
     implementation("com.google.zxing:core:3.4.1")
     implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.2")
     implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:5.0.0-alpha.2")
@@ -91,9 +88,8 @@ dependencies {
     implementation("editorkit:language-json:2.0.0")
 
     implementation(project(":library:proto-stub"))
-    implementation("io.grpc:grpc-okhttp:1.39.0")
+    implementation("io.grpc:grpc-okhttp:1.40.1")
 
-    implementation("io.netty:netty-all:4.1.67.Final")
     implementation("org.slf4j:slf4j-simple:1.7.32")
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:2.0")
     implementation("dnsjava:dnsjava:3.4.1")

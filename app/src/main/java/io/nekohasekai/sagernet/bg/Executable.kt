@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -31,20 +31,19 @@ import java.io.IOException
 
 object Executable {
     const val SS_LOCAL = "libsslocal.so"
-    const val TUN2SOCKS = "libtun2socks.so"
 
-    private val EXECUTABLES = setOf(SS_LOCAL, TUN2SOCKS)
+    private val EXECUTABLES = setOf(SS_LOCAL)
 
     fun killAll() {
         for (process in File("/proc").listFiles { _, name -> TextUtils.isDigitsOnly(name) }
             ?: return) {
-            val exe = File(
-                try {
-                    File(process, "cmdline").inputStream().bufferedReader().readText()
-                } catch (_: IOException) {
-                    continue
-                }.split(Character.MIN_VALUE, limit = 2).first()
-            )
+            val exe = File(try {
+                File(process, "cmdline").inputStream().bufferedReader().use {
+                    it.readText()
+                }
+            } catch (_: IOException) {
+                continue
+            }.split(Character.MIN_VALUE, limit = 2).first())
             if (EXECUTABLES.contains(exe.name)) try {
                 Os.kill(process.name.toInt(), OsConstants.SIGKILL)
                 Logs.w("SIGKILL ${exe.nameWithoutExtension} (${process.name}) succeed")

@@ -33,7 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Fetch Status
-        run: git submodule status library/libcore > libcore_status
+        run: git submodule status library/core > libcore_status
       - name: LibCore Cache
         id: cache
         uses: actions/cache@v2
@@ -45,13 +45,13 @@ jobs:
         uses: actions/setup-go@v2
         if: steps.cache.outputs.cache-hit != 'true'
         with:
-          go-version: 1.16
+          go-version: 1.17
       - name: Gradle cache
         uses: actions/cache@v2
         if: steps.cache.outputs.cache-hit != 'true'
         with:
           path: ~/.gradle
-          key: native-${{ hashFiles('**/*.gradle') }}
+          key: native-${{ hashFiles('**/*.gradle.kts') }}
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./run lib core
@@ -79,7 +79,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         with:
           path: ~/.gradle
-          key: native-${{ hashFiles('**/*.gradle') }}
+          key: native-${{ hashFiles('**/*.gradle.kts') }}
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
@@ -99,7 +99,7 @@ jobs:
       - name: Fetch Status
         run: |
           git submodule status 'library/shadowsocks/*' > shadowsocks_status
-          git submodule status library/libcore > libcore_status
+          git submodule status library/core > libcore_status
       - name: LibCore Cache
         uses: actions/cache@v2
         with:
@@ -116,8 +116,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.gradle
-          key: gradle-${{ hashFiles('**/*.gradle') }}
+          key: gradle-${{ hashFiles('**/*.gradle.kts') }}
       - name: Release Build
+        env:
+          BUILD_PLUGIN: none
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=${ANDROID_HOME}/ndk/21.4.7075529" >> local.properties
@@ -212,7 +214,7 @@ jobs:
       - name: Fetch Status
         run: |
           git submodule status 'library/shadowsocks/*' > shadowsocks_status
-          git submodule status library/libcore > libcore_status
+          git submodule status library/core > libcore_status
       - name: LibCore Cache
         uses: actions/cache@v2
         with:
@@ -229,11 +231,13 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.gradle
-          key: gradle-${{ hashFiles('**/*.gradle') }}
+          key: gradle-${{ hashFiles('**/*.gradle.kts') }}
       - name: Checkout Library
         run: |
           git submodule update --init 'app/*'
       - name: Release Build
+        env:
+          BUILD_PLUGIN: none
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=${ANDROID_HOME}/ndk/21.4.7075529" >> local.properties

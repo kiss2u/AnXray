@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -134,7 +132,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         registerForActivityResult(ActivityResultContracts.CreateDocument()) { data ->
             if (data != null) {
                 runOnDefaultDispatcher {
-                    val profiles = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
+                    val profiles = SagerDatabase.proxyDao.getByGroup(selectedGroup.id)
                     val links = profiles.mapNotNull { it.toLink() }.joinToString("\n")
                     try {
                         (requireActivity() as MainActivity).contentResolver.openOutputStream(
@@ -176,6 +174,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         init {
+            setHasStableIds(true)
+
             runOnDefaultDispatcher {
                 reload()
             }
@@ -351,8 +351,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     runOnDefaultDispatcher {
                         val profiles = SagerDatabase.proxyDao.getByGroup(selectedGroup.id)
                         val links = profiles.mapNotNull { it.toLink() }.joinToString("\n")
-                        SagerNet.trySetPrimaryClip(links)
                         onMainDispatcher {
+                            SagerNet.trySetPrimaryClip(links)
                             snackbar(getString(R.string.copy_toast_msg)).show()
                         }
                     }

@@ -1,29 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
- *                                                                            *
- * This program is free software: you can redistribute it and/or modify       *
- * it under the terms of the GNU General Public License as published by       *
- * the Free Software Foundation, either version 3 of the License, or          *
- *  (at your option) any later version.                                       *
- *                                                                            *
- * This program is distributed in the hope that it will be useful,            *
- * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
- * GNU General Public License for more details.                               *
- *                                                                            *
- * You should have received a copy of the GNU General Public License          *
- * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
- *                                                                            *
- ******************************************************************************/
-
-/******************************************************************************
- *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -72,18 +49,16 @@ class ProxyInstance(profile: ProxyEntity, val service: BaseService.Interface) : 
     profile
 ) {
 
-    override val eventLoopGroup by lazy { SagerNet.eventLoopGroup() }
     lateinit var managedChannel: ManagedChannel
     val statsService by lazy { StatsServiceGrpcKt.StatsServiceCoroutineStub(managedChannel) }
 
-    override fun initInstance() {
+    override fun init() {
         if (service is VpnService) {
             Libcore.setProtector { service.protect(it.toInt()) }
         }
-        super.initInstance()
-    }
 
-    override fun init() {
+        Libcore.setIPv6Mode(DataStore.ipv6Mode.toLong())
+
         super.init()
 
         Logs.d(config.config)
@@ -99,17 +74,25 @@ class ProxyInstance(profile: ProxyEntity, val service: BaseService.Interface) : 
         if (config.enableApi) {
             managedChannel = createChannel()
         }
+
+        if (DataStore.allowAccess) {
+            externalInstances[11451] = ApiInstance().apply {
+                launch()
+            }
+        }
+
+        SagerNet.started = true
     }
 
     override fun destroy(scope: CoroutineScope) {
+        SagerNet.started = false
+
         persistStats()
         super.destroy(scope)
 
         if (::managedChannel.isInitialized) {
             managedChannel.shutdownNow()
         }
-
-        eventLoopGroup.shutdownGracefully()
     }
 
     // ------------- stats -------------

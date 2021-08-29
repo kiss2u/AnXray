@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -31,7 +29,9 @@ import androidx.preference.Preference
 import androidx.preference.SwitchPreference
 import com.takisoft.preferencex.PreferenceFragmentCompat
 import com.takisoft.preferencex.SimpleMenuPreference
-import io.nekohasekai.sagernet.*
+import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.ktx.*
@@ -62,7 +62,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             appTheme.remove()
         } else {
             appTheme.setOnPreferenceChangeListener { _, newTheme ->
-                if (serviceStarted()) {
+                if (SagerNet.started) {
                     SagerNet.reloadService()
                 }
                 val theme = Theme.getTheme(newTheme as Int)
@@ -167,35 +167,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        val vpnMode = findPreference<SimpleMenuPreference>(Key.VPN_MODE)!!
-        val tunImplementation = findPreference<SimpleMenuPreference>(Key.TUN_IMPLEMENTATION)!!
-        val icmpEchoStrategy = findPreference<SimpleMenuPreference>(Key.ICMP_ECHO_STRATEGY)!!
-        val icmpEchoReplyDelay = findPreference<EditTextPreference>(Key.ICMP_ECHO_REPLY_DELAY)!!
-        val ipOtherStrategy = findPreference<SimpleMenuPreference>(Key.IP_OTHER_STRATEGY)!!
-
-        fun updateVpnMode(newMode: Int) {
-            val isForwarding = newMode == VpnMode.EXPERIMENTAL_FORWARDING
-            tunImplementation.isVisible = !isForwarding
-            icmpEchoStrategy.isVisible = isForwarding
-            icmpEchoReplyDelay.isVisible = isForwarding
-            if (isForwarding) {
-                icmpEchoReplyDelay.isEnabled = icmpEchoStrategy.value == "${PacketStrategy.REPLY}"
-            }
-            ipOtherStrategy.isVisible = isForwarding
-        }
-
-        updateVpnMode(DataStore.vpnMode)
-        vpnMode.setOnPreferenceChangeListener { _, newValue ->
-            updateVpnMode((newValue as String).toInt())
-            needReload()
-            true
-        }
-        icmpEchoStrategy.setOnPreferenceChangeListener { _, newValue ->
-            icmpEchoReplyDelay.isEnabled = newValue == "${PacketStrategy.REPLY}"
-            needReload()
-            true
-        }
-
         val providerTrojan = findPreference<SimpleMenuPreference>(Key.PROVIDER_TROJAN)!!
         val providerShadowsocksAEAD = findPreference<SimpleMenuPreference>(Key.PROVIDER_SS_AEAD)!!
         val providerShadowsocksStream = findPreference<SimpleMenuPreference>(Key.PROVIDER_SS_STREAM)!!
@@ -226,8 +197,13 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         val utlsFingerprint = findPreference<SimpleMenuPreference>(Key.UTLS_FINGERPRINT)!!
+        val trafficStatistics = findPreference<SwitchPreference>(Key.TRAFFIC_STATISTICS)!!
 
-        serviceMode.onPreferenceChangeListener = reloadListener
+        serviceMode.setOnPreferenceChangeListener { _, _ ->
+            if (SagerNet.started) SagerNet.stopService()
+            true
+        }
+
         speedInterval.onPreferenceChangeListener = reloadListener
         portSocks5.onPreferenceChangeListener = reloadListener
         portHttp.onPreferenceChangeListener = reloadListener
@@ -257,16 +233,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         transproxyMode.onPreferenceChangeListener = reloadListener
 
         enableLog.onPreferenceChangeListener = reloadListener
-
-        tunImplementation.onPreferenceChangeListener = reloadListener
-        icmpEchoReplyDelay.onPreferenceChangeListener = reloadListener
-        icmpEchoReplyDelay.setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        ipOtherStrategy.onPreferenceChangeListener = reloadListener
-
         providerTrojan.onPreferenceChangeListener = reloadListener
         providerShadowsocksAEAD.onPreferenceChangeListener = reloadListener
         providerShadowsocksStream.onPreferenceChangeListener = reloadListener
         utlsFingerprint.onPreferenceChangeListener = reloadListener
+        trafficStatistics.onPreferenceChangeListener = reloadListener
 
     }
 

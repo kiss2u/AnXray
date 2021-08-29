@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -45,6 +43,7 @@ import com.danielstone.materialaboutlibrary.model.MaterialAboutList
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
+import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.widget.ListHolderListener
@@ -180,7 +179,9 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                         }
                         .build())
                     .apply {
+                        val m = enumValues<PluginEntry>().associateBy { it.pluginId }
                         for (plugin in PluginManager.fetchPlugins()) {
+                            if (!m.containsKey(plugin.id)) continue
                             try {
                                 addItem(MaterialAboutActionItem.Builder()
                                     .icon(R.drawable.ic_baseline_nfc_24)

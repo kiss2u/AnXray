@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -57,13 +55,10 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import io.nekohasekai.sagernet.GroupType
-import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.SubscriptionType
+import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.aidl.TrafficStats
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.bg.proto.TestInstance
+import io.nekohasekai.sagernet.bg.test.UrlTest
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.databinding.LayoutProfileBinding
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
@@ -78,7 +73,7 @@ import io.nekohasekai.sagernet.ui.profile.*
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.*
-import java.io.IOException
+import libcore.Libcore
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -104,11 +99,6 @@ class ConfigurationFragment @JvmOverloads constructor(
         super.onViewCreated(view, savedInstanceState)
         if (!select) {
             toolbar.inflateMenu(R.menu.add_profile_menu)
-
-            if (!isExpert) {
-                toolbar.menu.findItem(R.id.action_connection_test).subMenu.removeItem(R.id.action_connection_url_reuse)
-            }
-
             toolbar.setOnMenuItemClickListener(this)
             runCatching {
                 val mTitleTextView = Toolbar::class.java.getDeclaredField("mTitleTextView")
@@ -368,23 +358,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 pingTest(false)
             }
             R.id.action_connection_url_test -> {
-                urlTest(false)
-            }
-            R.id.action_connection_url_reuse -> {
-                urlTest(true)
-            }
-            R.id.action_connection_reorder -> {
-                runOnDefaultDispatcher {
-                    val currentGroup = DataStore.currentGroupId()
-                    val profiles = SagerDatabase.proxyDao.getByGroup(currentGroup)
-                    val sorted = profiles.sortedBy { if (it.status == 1) it.ping else 114514 }
-                    for (index in sorted.indices) {
-                        sorted[index].userOrder = (index + 1).toLong()
-                    }
-                    SagerDatabase.proxyDao.updateProxy(sorted)
-                    GroupManager.postReload(currentGroup)
-
-                }
+                urlTest()
             }
             R.id.action_filter_groups -> {
                 runOnDefaultDispatcher filter@{
@@ -479,7 +453,7 @@ class ConfigurationFragment @JvmOverloads constructor(
     inner class TestDialog {
         val binding = LayoutProgressBinding.inflate(layoutInflater)
         val builder = MaterialAlertDialogBuilder(requireContext()).setView(binding.root)
-            .setNegativeButton(android.R.string.cancel, DialogInterface.OnClickListener { _, _ ->
+            .setNegativeButton(android.R.string.cancel, { _, _ ->
                 cancel()
             })
             .setCancelable(false)
@@ -570,7 +544,7 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     fun stopService() {
-        if (serviceStarted()) SagerNet.stopService()
+        if (SagerNet.started) SagerNet.stopService()
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
@@ -598,9 +572,6 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
             val profiles = ConcurrentLinkedQueue(profilesUnfiltered)
             val testPool = newFixedThreadPoolContext(5, "Connection test pool")
-            val icmpTestMethod by lazy {
-                InetAddress::class.java.getDeclaredMethod("isReachableByICMP", Int::class.java)
-            }
             repeat(5) {
                 testJobs.add(launch(testPool) {
                     while (isActive) {
@@ -644,14 +615,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                         }
                         try {
                             if (icmpPing) {
-                                val start = SystemClock.elapsedRealtime()
-                                val result = icmpTestMethod.invoke(
-                                    InetAddress.getByName(address), 5000
-                                ) as Boolean
+                                val result = Libcore.icmpPing(
+                                    address, 5000
+                                )
                                 if (!isActive) break
-                                if (result) {
+                                if (result != -1) {
                                     profile.status = 1
-                                    profile.ping = (SystemClock.elapsedRealtime() - start).toInt()
+                                    profile.ping = result.toInt()
                                 } else {
                                     profile.status = 2
                                     profile.error = getString(R.string.connection_test_unreachable)
@@ -659,6 +629,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 test.update(profile)
                             } else {
                                 val socket = Socket()
+                                socket.soTimeout = 5000
                                 socket.bind(InetSocketAddress(0))
                                 protectFromVpn(socket.fileDescriptor.int)
                                 val start = SystemClock.elapsedRealtime()
@@ -673,7 +644,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 test.update(profile)
                                 socket.close()
                             }
-                        } catch (e: IOException) {
+                        } catch (e: Exception) {
                             if (!isActive) break
                             val message = e.readableMessage
 
@@ -724,10 +695,9 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
-    fun urlTest(reuse: Boolean) {
+    fun urlTest() {
         stopService()
 
-        val eventLoopGroup = SagerNet.eventLoopGroup()
         val test = TestDialog()
         val dialog = test.builder.show()
         val mainJob = runOnDefaultDispatcher {
@@ -748,6 +718,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
             val profiles = ConcurrentLinkedQueue(profilesUnfiltered)
             val testJobs = mutableListOf<Job>()
+            val urlTest = UrlTest()
 
             repeat(5) {
                 testJobs.add(launch {
@@ -757,9 +728,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         test.insert(profile)
 
                         try {
-                            val result = TestInstance(
-                                profile, eventLoopGroup
-                            ).doTest(if (reuse) 2 else 1)
+                            val result = urlTest.doTest(profile)
                             profile.status = 1
                             profile.ping = result
                         } catch (e: PluginManager.PluginNotFoundException) {
@@ -777,7 +746,6 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             testJobs.joinAll()
-            eventLoopGroup.shutdownGracefully()
 
             onMainDispatcher {
                 test.binding.progressCircular.isGone = true
@@ -786,6 +754,9 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.cancel = {
             mainJob.cancel()
+            runOnDefaultDispatcher {
+                GroupManager.postReload(DataStore.currentGroupId())
+            }
         }
     }
 
@@ -1049,6 +1020,10 @@ class ConfigurationFragment @JvmOverloads constructor(
             GroupManager.Listener,
             UndoSnackbarManager.Interface<ProxyEntity> {
 
+            init {
+                setHasStableIds(true)
+            }
+
             var configurationIdList: MutableList<Long> = mutableListOf()
             val configurationList = HashMap<Long, ProxyEntity>()
 
@@ -1224,6 +1199,15 @@ class ConfigurationFragment @JvmOverloads constructor(
                         }
                     }
                 }
+                when (proxyGroup.order) {
+                    GroupOrder.BY_NAME -> {
+                        newProfiles = newProfiles.sortedBy { it.displayName() }
+                    }
+                    GroupOrder.BY_DELAY -> {
+                        newProfiles = newProfiles.sortedBy { if (it.status == 1) it.ping else 114514 }
+                    }
+                }
+
                 configurationList.clear()
                 configurationList.putAll(newProfiles.associateBy { it.id })
                 val newProfileIds = newProfiles.map { it.id }
@@ -1371,7 +1355,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
                 runOnDefaultDispatcher {
                     val selected = (selectedItem?.id ?: DataStore.selectedProxy) == proxyEntity.id
-                    val started = serviceStarted() && DataStore.currentProfile == proxyEntity.id
+                    val started = SagerNet.started && DataStore.currentProfile == proxyEntity.id
                     onMainDispatcher {
                         editButton.isEnabled = !started
                         selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE

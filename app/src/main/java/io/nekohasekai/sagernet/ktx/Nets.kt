@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -24,14 +22,12 @@
 package io.nekohasekai.sagernet.ktx
 
 import android.os.Build
+import cn.hutool.core.lang.Validator
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.LOCALHOST
-import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled
-import io.netty.util.NetUtil
 import okhttp3.ConnectionSpec
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
@@ -48,11 +44,7 @@ val okHttpClient = OkHttpClient.Builder()
 
 private lateinit var proxyClient: OkHttpClient
 fun createProxyClient(): OkHttpClient {
-    if (!SagerNet.started) {
-        if (DataStore.startedProfile == 0L) {
-            return okHttpClient
-        }
-    }
+    if (!SagerNet.started) return okHttpClient
 
     if (!::proxyClient.isInitialized) {
         proxyClient = okHttpClient.newBuilder().proxy(requireProxy()).build()
@@ -86,7 +78,7 @@ fun HttpUrl.Builder.toLink(scheme: String, appendDefaultPort: Boolean = true): S
 }
 
 fun String.isIpAddress(): Boolean {
-    return NetUtil.isValidIpV4Address(this) || NetUtil.isValidIpV6Address(this)
+    return Validator.isIpv4(this) || Validator.isIpv6(this)
 }
 
 fun String.unwrapHost(): String {
@@ -97,7 +89,7 @@ fun String.unwrapHost(): String {
 }
 
 fun AbstractBean.wrapUri(): String {
-    return if (NetUtil.isValidIpV6Address(finalAddress)) {
+    return if (Validator.isIpv6(finalAddress)) {
         "[$finalAddress]:$finalPort"
     } else {
         "$finalAddress:$finalPort"
@@ -115,13 +107,6 @@ fun mkPort(): Int {
     val port = socket.localPort
     socket.close()
     return port
-}
-
-fun ByteBuf.toByteArray(): ByteArray {
-    if (!hasArray()) {
-        return Unpooled.copiedBuffer(this).array()
-    }
-    return array()
 }
 
 const val IPPROTO_ICMP = 1

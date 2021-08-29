@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -35,6 +35,7 @@ import androidx.core.content.getSystemService
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.aidl.AppStatsList
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.aidl.TrafficStats
 import io.nekohasekai.sagernet.database.DataStore
@@ -102,6 +103,9 @@ class ServiceNotification(
             }
 
             override fun profilePersisted(profileId: Long) {}
+            override fun missingPlugin(profileName: String?, pluginName: String?) {}
+            override fun statsUpdated(statsList: AppStatsList?) {}
+            override fun routeAlert(type: Int, routeName: String?) {}
         }
     }
     private var callbackRegistered = false

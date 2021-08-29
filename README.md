@@ -64,6 +64,8 @@ The application is designed to be used whenever possible.
 * Advanced routing with outbound profile selection
 * Reverse proxy
 * Custom config (Xray / Trojan-Go)
+* Traffic statistics support, including real-time display and cumulative statistics
+* Foreground status based routing support
 
 ## Credits
 
@@ -81,9 +83,7 @@ The application is designed to be used whenever possible.
 ## License
 
 ```
-Copyright (C) 2021 by nekohasekai <sekai@neko.services>
-Copyright (C) 2017-2021 by Max Lv <max.c.lv@gmail.com>
-Copyright (C) 2017-2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>
+Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

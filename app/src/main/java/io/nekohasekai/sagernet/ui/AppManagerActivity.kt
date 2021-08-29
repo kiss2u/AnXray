@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -78,7 +76,7 @@ class AppManagerActivity : ThemedActivity() {
         private const val SWITCH = "switch"
 
         private val cachedApps
-            get() = PackageCache.installPackages.toMutableMap().apply {
+            get() = PackageCache.installedPackages.toMutableMap().apply {
                 remove(BuildConfig.APPLICATION_ID)
             }
     }

@@ -1,29 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
- *                                                                            *
- * This program is free software: you can redistribute it and/or modify       *
- * it under the terms of the GNU General Public License as published by       *
- * the Free Software Foundation, either version 3 of the License, or          *
- *  (at your option) any later version.                                       *
- *                                                                            *
- * This program is distributed in the hope that it will be useful,            *
- * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
- * GNU General Public License for more details.                               *
- *                                                                            *
- * You should have received a copy of the GNU General Public License          *
- * along with this program. If not, see <http://www.gnu.org/licenses/>.       *
- *                                                                            *
- ******************************************************************************/
-
-/******************************************************************************
- *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -49,6 +26,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.ShadowsocksProvider
 import io.nekohasekai.sagernet.TrojanProvider
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.Executable
@@ -82,24 +60,18 @@ import io.nekohasekai.sagernet.fmt.trojan_go.buildCustomTrojanConfig
 import io.nekohasekai.sagernet.fmt.trojan_go.buildTrojanGoConfig
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
-import io.netty.channel.EventLoopGroup
-import io.netty.resolver.ResolvedAddressTypes
-import io.netty.resolver.dns.DnsNameResolverBuilder
-import io.netty.resolver.dns.PackagePrivateBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import libcore.Libcore
 import libcore.V2RayInstance
 import java.io.File
-import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class V2RayInstance(
     val profile: ProxyEntity
 ) : AbstractInstance {
 
-    abstract val eventLoopGroup: EventLoopGroup
     lateinit var config: V2rayBuildResult
     lateinit var v2rayPoint: V2RayInstance
     private lateinit var wsForwarder: WebView
@@ -118,16 +90,16 @@ abstract class V2RayInstance(
         return pluginPath.getOrPut(name) { PluginManager.init(name)!! }
     }
 
-    protected open fun initInstance() {
-        v2rayPoint = V2RayInstance()
-    }
-
     protected open fun buildConfig() {
         config = buildV2RayConfig(profile)
     }
 
+    protected open fun loadConfig() {
+        v2rayPoint.loadConfig(config.config, false)
+    }
+
     open fun init() {
-        initInstance()
+        v2rayPoint = V2RayInstance()
         buildConfig()
         for ((isBalancer, chain) in config.index) {
             chain.entries.forEachIndexed { index, (port, profile) ->
@@ -136,12 +108,15 @@ abstract class V2RayInstance(
                 val bean = profile.requireBean()
 
                 when {
-                    profile.useClashShadowsocks() -> {
-                        externalInstances[port] = ShadowsocksInstance(bean as ShadowsocksBean, port)
-                    }
-                    profile.useExternalShadowsocks() -> {
-                        bean as ShadowsocksBean
-                        pluginConfigs[port] = profile.type to bean.buildShadowsocksConfig(port)
+                    bean is ShadowsocksBean -> when (profile.pickShadowsocksProvider()) {
+                        ShadowsocksProvider.CLASH -> {
+                            externalInstances[port] = ShadowsocksInstance(bean, port)
+                        }
+                        else -> {
+                            pluginConfigs[port] = profile.type to bean.buildShadowsocksConfig(
+                                port
+                            )
+                        }
                     }
                     bean is ShadowsocksRBean -> {
                         externalInstances[port] = ShadowsocksRInstance(bean, port)
@@ -150,7 +125,9 @@ abstract class V2RayInstance(
                         when (DataStore.providerTrojan) {
                             TrojanProvider.TROJAN -> {
                                 initPlugin("trojan-plugin")
-                                pluginConfigs[port] = profile.type to bean.buildTrojanConfig(port)
+                                pluginConfigs[port] = profile.type to bean.buildTrojanConfig(
+                                    port
+                                )
                             }
                             TrojanProvider.TROJAN_GO -> {
                                 initPlugin("trojan-go-plugin")
@@ -162,7 +139,9 @@ abstract class V2RayInstance(
                     }
                     bean is TrojanGoBean -> {
                         initPlugin("trojan-go-plugin")
-                        pluginConfigs[port] = profile.type to bean.buildTrojanGoConfig(port, mux)
+                        pluginConfigs[port] = profile.type to bean.buildTrojanGoConfig(
+                            port, mux
+                        )
                     }
                     bean is NaiveBean -> {
                         initPlugin("naive-plugin")
@@ -181,7 +160,15 @@ abstract class V2RayInstance(
                     }
                     bean is HysteriaBean -> {
                         initPlugin("hysteria-plugin")
-                        pluginConfigs[port] = profile.type to bean.buildHysteriaConfig(port)
+                        pluginConfigs[port] = profile.type to bean.buildHysteriaConfig(port) {
+                            File(
+                                app.noBackupFilesDir,
+                                "hysteria_" + SystemClock.elapsedRealtime() + ".ca"
+                            ).apply {
+                                parentFile?.mkdirs()
+                                cacheFiles.add(this)
+                            }
+                        }
                     }
                     bean is ConfigBean -> {
                         when (bean.type) {
@@ -193,7 +180,7 @@ abstract class V2RayInstance(
                             }
                             else -> {
                                 externalInstances[port] = ExternalInstance(
-                                    profile, port, eventLoopGroup
+                                    profile, port
                                 ).apply {
                                     init()
                                 }
@@ -201,9 +188,7 @@ abstract class V2RayInstance(
                         }
                     }
                     bean is SOCKSBean -> {
-                        externalInstances[port] = Socks4To5Instance(
-                            eventLoopGroup, bean, port, dnsResolverIPv4Only
-                        )
+                        externalInstances[port] = Socks4To5Instance(bean, port)
                     }
                     bean is SnellBean -> {
                         externalInstances[port] = SnellInstance(bean, port)
@@ -211,20 +196,7 @@ abstract class V2RayInstance(
                 }
             }
         }
-
-        v2rayPoint.loadConfig(config.config)
-    }
-
-    private val dnsResolverIPv4Only by lazy {
-        DnsNameResolverBuilder().eventLoop(eventLoopGroup.next())
-            .channelType(SagerNet.datagramChannel)
-            .nameServerProvider(
-                PackagePrivateBridge.mkDnsProvider(
-                    InetSocketAddress(LOCALHOST, DataStore.localDNSPort)
-                )
-            )
-            .resolvedAddressTypes(ResolvedAddressTypes.IPV4_ONLY)
-            .build()
+        loadConfig()
     }
 
     override fun launch() {
@@ -240,7 +212,7 @@ abstract class V2RayInstance(
                     externalInstances.containsKey(port) -> {
                         externalInstances[port]!!.launch()
                     }
-                    profile.useExternalShadowsocks() -> {
+                    bean is ShadowsocksBean -> {
                         val configFile = File(
                             context.noBackupFilesDir,
                             "shadowsocks_" + SystemClock.elapsedRealtime() + ".json"
@@ -270,20 +242,12 @@ abstract class V2RayInstance(
                         configFile.writeText(config)
                         cacheFiles.add(configFile)
 
-                        val commands = mutableListOf<String>()
-
-                        when (DataStore.providerTrojan) {
-                            TrojanProvider.TROJAN -> {
-                                commands.add(initPlugin("trojan-plugin").path)
-                            }
-                            TrojanProvider.TROJAN_GO -> {
-                                commands.add(initPlugin("trojan-go-plugin").path)
-                                //commands.add("-config") // but why?
-                            }
-                        }
-
-                        commands.add("--config")
-                        commands.add(configFile.absolutePath)
+                        val commands = listOf(
+                            when (DataStore.providerTrojan) {
+                                TrojanProvider.TROJAN -> initPlugin("trojan-plugin")
+                                else -> initPlugin("trojan-go-plugin")
+                            }.path, "--config", configFile.absolutePath
+                        )
 
                         processes.start(commands)
                     }
@@ -467,6 +431,10 @@ abstract class V2RayInstance(
     }
 
     override fun destroy(scope: CoroutineScope) {
+        for (instance in externalInstances.values) {
+            instance.destroy(scope)
+        }
+
         cacheFiles.removeAll { it.delete(); true }
 
         if (::wsForwarder.isInitialized) {
@@ -480,10 +448,6 @@ abstract class V2RayInstance(
 
         if (::v2rayPoint.isInitialized) {
             v2rayPoint.close()
-        }
-
-        for (instance in externalInstances.values) {
-            instance.destroy(scope)
         }
     }
 

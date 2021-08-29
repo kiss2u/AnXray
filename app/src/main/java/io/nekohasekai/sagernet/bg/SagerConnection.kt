@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -29,14 +29,10 @@ import android.os.IBinder
 import android.os.RemoteException
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.aidl.ISagerNetService
-import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
-import io.nekohasekai.sagernet.aidl.TrafficStats
+import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.aidl.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 
 class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConnection,
     IBinder.DeathRecipient {
@@ -52,7 +48,10 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
     interface Callback {
         fun stateChanged(state: BaseService.State, profileName: String?, msg: String?)
         fun trafficUpdated(profileId: Long, stats: TrafficStats, isCurrent: Boolean) {}
+        fun statsUpdated(stats: List<AppStats>) {}
         fun profilePersisted(profileId: Long) {}
+        fun missingPlugin(profileName: String, pluginName: String) {}
+        fun routeAlert(type: Int, routeName: String) {}
 
         fun onServiceConnected(service: ISagerNetService)
 
@@ -68,9 +67,11 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
     private var callback: Callback? = null
     private val serviceCallback = object : ISagerNetServiceCallback.Stub() {
         override fun stateChanged(state: Int, profileName: String?, msg: String?) {
+            val s = BaseService.State.values()[state]
+            SagerNet.started = s.canStop
             val callback = callback ?: return
             runOnMainDispatcher {
-                callback.stateChanged(BaseService.State.values()[state], profileName, msg)
+                callback.stateChanged(s, profileName, msg)
             }
         }
 
@@ -85,6 +86,25 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
             val callback = callback ?: return
             runOnMainDispatcher { callback.profilePersisted(profileId) }
         }
+
+        override fun missingPlugin(profileName: String, pluginName: String) {
+            val callback = callback ?: return
+            runOnMainDispatcher {
+                callback.missingPlugin(profileName, pluginName)
+            }
+        }
+
+        override fun statsUpdated(statsList: AppStatsList) {
+            val callback = callback ?: return
+            callback.statsUpdated(statsList.data)
+        }
+
+        override fun routeAlert(type: Int, routeName: String) {
+            val callback = callback ?: return
+            runOnMainDispatcher {
+                callback.routeAlert(type, routeName)
+            }
+        }
     }
 
     private var binder: IBinder? = null
@@ -94,6 +114,15 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
             try {
                 if (value > 0) service?.startListeningForBandwidth(serviceCallback, value)
                 else service?.stopListeningForBandwidth(serviceCallback)
+            } catch (_: RemoteException) {
+            }
+            field = value
+        }
+    var trafficTimeout = 0L
+        set(value) {
+            try {
+                if (value > 0) service?.startListeningForStats(serviceCallback, value)
+                else service?.stopListeningForStats(serviceCallback)
             } catch (_: RemoteException) {
             }
             field = value
@@ -111,6 +140,9 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
             callbackRegistered = true
             if (bandwidthTimeout > 0) service.startListeningForBandwidth(
                 serviceCallback, bandwidthTimeout
+            )
+            if (trafficTimeout > 0) service.startListeningForStats(
+                serviceCallback, trafficTimeout
             )
         } catch (e: RemoteException) {
             e.printStackTrace()
@@ -163,6 +195,7 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
         binder = null
         try {
             service?.stopListeningForBandwidth(serviceCallback)
+            service?.stopListeningForStats(serviceCallback)
         } catch (_: RemoteException) {
         }
         service = null

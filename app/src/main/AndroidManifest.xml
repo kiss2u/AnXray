@@ -112,6 +112,9 @@
                 <data android:scheme="ss" />
                 <data android:scheme="ssr" />
                 <data android:scheme="socks" />
+                <data android:scheme="socks4" />
+                <data android:scheme="socksa" />
+                <data android:scheme="sock5" />
                 <data android:scheme="vmess" />
                 <data android:scheme="vless" />
                 <data android:scheme="trojan" />
@@ -297,10 +300,31 @@
             </intent-filter>
         </receiver>
 
+        <service
+            android:name="io.nekohasekai.sagernet.bg.ForegroundDetectorService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:process=":bg">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/foreground_detector_service" />
+        </service>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             tools:node="remove" />
+
+        <activity
+            android:name="com.mikepenz.aboutlibraries.ui.LibsActivity"
+            tools:node="remove"/>
+
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            tools:node="remove"/>
 
         <service
             android:name="androidx.room.MultiInstanceInvalidationService"
